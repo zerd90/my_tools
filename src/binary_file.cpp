@@ -5,46 +5,50 @@
 #include <string>
 using std::string;
 
-#ifdef __linux
-#include <unistd.h>
+#ifdef _MSC_VER
+    #include <io.h>
+    #define access _access
+    #define F_OK   (00)
+    #define W_OK   (02)
+    #define R_OK   (04)
+    #define X_OK   (06)
 
-#include <stdlib.h>
-#include <stdio.h>
-#include <byteswap.h>
+    #define bswap_16(n) ((n << 8) | (n >> 8))
+    #define bswap_32(n) ((n << 24) | ((n << 8) & 0xff0000) | ((n >> 8) & 0xff00) | (n >> 24))
+    #define bswap_64(n) ((uint64_t)bswap_32((uint32_t)n) << 32 | bswap_32((uint32_t)(n >> 32)))
+#else
+    #include <unistd.h>
+    #ifdef __linux
+        #include <byteswap.h>
+    #else
 
-#elif defined(_WIN32)
-
-#include <io.h>
-#define access _access
-#define F_OK   (00)
-#define W_OK   (02)
-#define R_OK   (04)
-#define X_OK   (06)
-
-#define bswap_16(n) ((n << 8) | (n >> 8))
-
-#define bswap_32(n) ((n << 24) | ((n << 8) & 0xff0000) | ((n >> 8) & 0xff00) | (n >> 24))
-
-#define bswap_64(n) ((uint64_t)bswap_32((uint32_t)n) << 32 | bswap_32((uint32_t)(n >> 32)))
-
+        #define bswap_16(n) ((n << 8) | (n >> 8))
+        #define bswap_32(n) ((n << 24) | ((n << 8) & 0xff0000) | ((n >> 8) & 0xff00) | (n >> 24))
+        #define bswap_64(n) ((uint64_t)bswap_32((uint32_t)n) << 32 | bswap_32((uint32_t)(n >> 32)))
+    #endif
 #endif
 
 #include "binary_file.h"
 #include "logger.h"
 
-#ifdef __linux
-#define fseek64 fseeko64
-#define ftell64 ftello64
-using file_stat64_t = struct stat64;
-#else
-#define fseek64 _fseeki64
-#define ftell64 _ftelli64
+#ifdef WIN32
+    #define fseek64 _fseeki64
+    #define ftell64 _ftelli64
 using file_stat64_t = struct _stat64;
-#define stat64  _stat64
+    #define stat64 _stat64
+
+#elif defined(__linux)
+    #define fseek64 fseeko64
+    #define ftell64 ftello64
+using file_stat64_t = struct stat64;
+#else // Mac
+    #define fseek64 fseek
+    #define ftell64 ftell
+    #define stat64  stat
+using file_stat64_t = struct stat;
 #endif
 
-void splitpath(std::string &path, std::string &drv, std::string &dir, std::string &name,
-               std::string &ext)
+void splitpath(std::string &path, std::string &drv, std::string &dir, std::string &name, std::string &ext)
 {
     uint64_t drv_pos  = path.find(':');
     uint64_t name_pos = path.rfind('/');
@@ -88,8 +92,7 @@ int BinaryReader::check_buffer(uint64_t read_pos, uint64_t read_size)
 
     uint64_t can_rd_sz = MIN(read_size, file_size - read_pos);
 
-    if (buffer_start_pos > read_pos ||
-        read_pos + can_rd_sz > buffer_start_pos + buffer_contain_size)
+    if (buffer_start_pos > read_pos || read_pos + can_rd_sz > buffer_start_pos + buffer_contain_size)
     {
         buffer_contain_size = MIN(file_size - read_pos, buffer_size);
         if (fseek64(fp, read_pos, SEEK_SET) < 0)
@@ -99,8 +102,7 @@ int BinaryReader::check_buffer(uint64_t read_pos, uint64_t read_size)
         }
         if (fread(read_buffer, 1, buffer_contain_size, fp) != buffer_contain_size)
         {
-            Z_ERR("read {} fail({}), pos {}, size {}\n", fn, strerror(errno), read_pos,
-                  buffer_contain_size);
+            Z_ERR("read {} fail({}), pos {}, size {}\n", fn, strerror(errno), read_pos, buffer_contain_size);
             exit(0);
         }
         buffer_start_pos = read_pos;
@@ -109,41 +111,41 @@ int BinaryReader::check_buffer(uint64_t read_pos, uint64_t read_size)
     return 0;
 }
 
-int BinaryReader::open(std::string &fn)
+int BinaryReader::open(std::string &newFileName)
 {
     int   ret = 0;
     FILE *tmpfp;
 
-    ret = access(fn.c_str(), F_OK | R_OK);
+    ret = access(newFileName.c_str(), F_OK | R_OK);
     if (ret != 0)
     {
         Z_ERR("file ");
-        Log::blue("{}", fn);
+        Log::blue("{}", newFileName);
         Log::print(" can't access\n");
         goto exit;
     }
 
     file_stat64_t file_state;
-    ret = stat64(fn.c_str(), &file_state);
+    ret = stat64(newFileName.c_str(), &file_state);
     if (ret < 0)
     {
         Z_ERR("Can't state file ");
-        Log::blue("{}\n", fn);
+        Log::blue("{}\n", newFileName);
         goto exit;
     }
     if (file_state.st_mode & S_IFDIR)
     {
-        Log::blue("{}", fn);
+        Log::blue("{}", newFileName);
         Log::print(" is a dir\n");
         ret = -1;
         goto exit;
     }
 
-    tmpfp = fopen(fn.c_str(), "rb");
+    tmpfp = fopen(newFileName.c_str(), "rb");
     if (!tmpfp)
     {
         Z_ERR("Can't open file");
-        Log::blue("{}\n", fn);
+        Log::blue("{}\n", newFileName);
         ret = -1;
         goto exit;
     }
@@ -151,12 +153,12 @@ int BinaryReader::open(std::string &fn)
     if (opened)
         close();
 
-    fp        = tmpfp;
+    fp = tmpfp;
 
     file_size = get_file_size(fp);
     _read_pos = 0;
 
-    this->fn  = fn;
+    fn = newFileName;
 
     splitpath(fn, drv, path, base_name, ext);
 
@@ -251,7 +253,7 @@ string BinaryReader::read_str(uint64_t max_len)
         max_len = file_size - _read_pos;
     }
 
-    char     c;
+    char     c       = 0;
     uint64_t max_end = _read_pos + max_len;
 
     dst_string.clear();
@@ -279,7 +281,7 @@ uint64_t BinaryReader::read_data(void *buf, uint16_t buf_len, uint16_t data_len,
         int pos = buf_len - data_len;
         ret     = read((uint8_t *)buf + pos, data_len);
         if (ret < data_len)
-            return -1;
+            return 0;
 
         switch (buf_len)
         {

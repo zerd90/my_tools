@@ -26,35 +26,6 @@ namespace Log
 	}
 }
 
-std::wstring stringToWstring(const std::string &orig)
-{
-    if (orig.empty())
-    {
-        return std::wstring();
-    }
-    std::wstring res(orig.length() + 1, 0);
-    mbstowcs(&res[0], orig.c_str(), orig.length());
-
-    return res;
-}
-
-std::string wstringToString(const std::wstring &wstr)
-{
-    if (wstr.empty())
-    {
-        return std::string();
-    }
-    char *result;
-    int   textlen;
-    textlen = WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), -1, NULL, 0, NULL, NULL);
-    result  = (char *)malloc((textlen + 1) * sizeof(char));
-    memset(result, 0, sizeof(char) * (textlen + 1));
-    WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), -1, result, textlen, NULL, NULL);
-    string res(result);
-    free(result);
-    return res;
-}
-
 std::string getBaseName(std::string &path)
 {
     size_t lastSlash = path.rfind('\\');

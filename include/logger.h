@@ -13,10 +13,11 @@
 
 #ifdef __linux
 
-#elif defined(_MSC_VER)
+#elif defined(WIN32)
 #include <windows.h>
+#ifdef _MSC_VER
 #define __PRETTY_FUNCTION__ __FUNCSIG__
-
+#endif
 #endif
 
 enum LOG_LEVEL
@@ -101,14 +102,14 @@ namespace Log
 	};
 
 	template <typename T>
-	struct Arg : ArgBase
+	struct ArgBaseType : ArgBase
 	{
 		T arg;
 
-		explicit Arg(T val)
+		explicit ArgBaseType(T val)
 			: arg(val) {}
 
-		~Arg() {}
+		~ArgBaseType() {}
 
 		std::string get_ss(std::string var_fmt = std::string()) override
 		{
@@ -124,6 +125,24 @@ namespace Log
 				ss << arg;
 			}
 
+			return ss.str();
+		}
+	};
+
+	template <typename T>
+	struct Arg : ArgBase
+	{
+		T arg;
+
+		explicit Arg(T val)
+			: arg(val) {}
+
+		~Arg() {}
+
+		std::string get_ss(std::string var_fmt = std::string()) override
+		{
+			std::ostringstream ss;
+			ss << arg;
 			return ss.str();
 		}
 	};
@@ -153,6 +172,14 @@ namespace Log
 			else if constexpr (decay_equiv<T, wchar_t *>::value)
 			{
                 arg = std::make_shared<ArgWString<std::wstring>>(std::wstring(arg1));
+			}
+            else if constexpr (decay_equiv<T, short>::value || decay_equiv<T, unsigned short>::value ||
+                               decay_equiv<T, int>::value || decay_equiv<T, unsigned int>::value || decay_equiv<T, long>::value ||
+                               decay_equiv<T, unsigned long>::value || decay_equiv<T, long long>::value ||
+                               decay_equiv<T, unsigned long long>::value || decay_equiv<T, float>::value ||
+                               decay_equiv<T, double>::value || std::is_pointer<T>::value)
+            {
+				arg = std::make_shared<ArgBaseType<T>>(arg1);
 			}
 			else
 			{
@@ -253,8 +280,37 @@ namespace Log
 
 #define FORMAT_CSTR(fmt, ...) Log::format(fmt, ##__VA_ARGS__).c_str()
 
-#ifdef __linux__
+#ifdef WIN32
+#define color_output(l, wAttributes)                                                                                  \
+	template <typename... Args>                                                                                       \
+	void l(const char *fmt, Args &&...args)                                                                           \
+	{                                                                                                                 \
+		HANDLE hStdout = GetStdHandle(STD_OUTPUT_HANDLE);                                                             \
+		SetConsoleTextAttribute(hStdout, wAttributes);                                                                \
+		fprintf(stderr, "%s", format(fmt, args...).c_str());                                                          \
+		SetConsoleTextAttribute(hStdout, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE | FOREGROUND_INTENSITY); \
+	}
 
+	color_output(blue, FOREGROUND_BLUE);
+	color_output(green, FOREGROUND_GREEN);
+	color_output(red, FOREGROUND_RED);
+	color_output(cyan, FOREGROUND_BLUE | FOREGROUND_GREEN);
+	color_output(purple, FOREGROUND_BLUE | FOREGROUND_RED);
+	color_output(brown, FOREGROUND_GREEN | FOREGROUND_RED);
+	color_output(dark_gray, FOREGROUND_INTENSITY);
+
+	color_output(light_blue, FOREGROUND_BLUE | FOREGROUND_INTENSITY);
+	color_output(light_green, FOREGROUND_GREEN | FOREGROUND_INTENSITY);
+	color_output(light_red, FOREGROUND_RED | FOREGROUND_INTENSITY);
+	color_output(light_cyan, FOREGROUND_BLUE | FOREGROUND_GREEN | FOREGROUND_INTENSITY);
+	color_output(yellow, FOREGROUND_GREEN | FOREGROUND_RED | FOREGROUND_INTENSITY);
+	color_output(light_purple, FOREGROUND_BLUE | FOREGROUND_RED | FOREGROUND_INTENSITY);
+	color_output(light_gray, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE);
+
+	color_output(black, 0);
+	color_output(white, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE | FOREGROUND_INTENSITY);
+
+#else
 #define LOG_NONE "\033[0m"
 #define LOG_BLACK "\033[0;30m"
 #define LOG_DARK_GRAY "\033[1;30m"
@@ -300,37 +356,6 @@ namespace Log
 
 	color_output(black, BLACK);
 	color_output(white, WHITE);
-
-#else
-
-#define color_output(l, wAttributes)                                                                                  \
-	template <typename... Args>                                                                                       \
-	void l(const char *fmt, Args &&...args)                                                                           \
-	{                                                                                                                 \
-		HANDLE hStdout = GetStdHandle(STD_OUTPUT_HANDLE);                                                             \
-		SetConsoleTextAttribute(hStdout, wAttributes);                                                                \
-		fprintf(stderr, "%s", format(fmt, args...).c_str());                                                          \
-		SetConsoleTextAttribute(hStdout, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE | FOREGROUND_INTENSITY); \
-	}
-
-	color_output(blue, FOREGROUND_BLUE);
-	color_output(green, FOREGROUND_GREEN);
-	color_output(red, FOREGROUND_RED);
-	color_output(cyan, FOREGROUND_BLUE | FOREGROUND_GREEN);
-	color_output(purple, FOREGROUND_BLUE | FOREGROUND_RED);
-	color_output(brown, FOREGROUND_GREEN | FOREGROUND_RED);
-	color_output(dark_gray, FOREGROUND_INTENSITY);
-
-	color_output(light_blue, FOREGROUND_BLUE | FOREGROUND_INTENSITY);
-	color_output(light_green, FOREGROUND_GREEN | FOREGROUND_INTENSITY);
-	color_output(light_red, FOREGROUND_RED | FOREGROUND_INTENSITY);
-	color_output(light_cyan, FOREGROUND_BLUE | FOREGROUND_GREEN | FOREGROUND_INTENSITY);
-	color_output(yellow, FOREGROUND_GREEN | FOREGROUND_RED | FOREGROUND_INTENSITY);
-	color_output(light_purple, FOREGROUND_BLUE | FOREGROUND_RED | FOREGROUND_INTENSITY);
-	color_output(light_gray, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE);
-
-	color_output(black, 0);
-	color_output(white, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE | FOREGROUND_INTENSITY);
 
 #endif
 
