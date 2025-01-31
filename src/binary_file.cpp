@@ -8,10 +8,10 @@ using std::string;
 #ifdef _MSC_VER
     #include <io.h>
     #define access _access
-    #define F_OK   (00)
-    #define W_OK   (02)
-    #define R_OK   (04)
-    #define X_OK   (06)
+    #define F_OK (00)
+    #define W_OK (02)
+    #define R_OK (04)
+    #define X_OK (06)
 
     #define bswap_16(n) ((n << 8) | (n >> 8))
     #define bswap_32(n) ((n << 24) | ((n << 8) & 0xff0000) | ((n >> 8) & 0xff00) | (n >> 24))
@@ -31,7 +31,7 @@ using std::string;
 #include "binary_file.h"
 #include "logger.h"
 
-#ifdef WIN32
+#if defined(WIN32) || defined(_WIN32)
     #define fseek64 _fseeki64
     #define ftell64 _ftelli64
 using file_stat64_t = struct _stat64;
@@ -44,7 +44,7 @@ using file_stat64_t = struct stat64;
 #else // Mac
     #define fseek64 fseek
     #define ftell64 ftell
-    #define stat64  stat
+    #define stat64 stat
 using file_stat64_t = struct stat;
 #endif
 

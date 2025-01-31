@@ -1,6 +1,6 @@
 #include "myThread.h"
 
-MyThread::~MyThread() 
+MyThread::~MyThread()
 {
     stop();
 }

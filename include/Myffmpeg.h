@@ -1,7 +1,11 @@
 
+#ifndef _MY_FFMPEG_H_
+#define _MY_FFMPEG_H_
+
 #include <assert.h>
 #include <string.h>
 #include <mutex>
+#include <string>
 
 extern "C"
 {
@@ -75,51 +79,51 @@ static inline const char *ffmpeg_make_err_string(int errCode)
 
 namespace Myffmpeg
 {
-using MutexGuard = std::lock_guard<std::mutex>;
+    using MutexGuard = std::lock_guard<std::mutex>;
 
-static int         g_log_level = AV_LOG_WARNING;
-static inline void ffmpeg_log_cb(void *mod, int level, const char *fmt, va_list vl)
-{
-    if (level > g_log_level)
-        return;
+    static int         g_log_level = AV_LOG_WARNING;
+    static inline void ffmpeg_log_cb(void *mod, int level, const char *fmt, va_list vl)
+    {
+        if (level > g_log_level)
+            return;
 
-    char buf[1024];
-    vsnprintf(buf, sizeof(buf), fmt, vl);
-    if (level <= AV_LOG_FATAL)
-    {
-        printf("FFMPEG(FATAL): %s", buf);
+        char buf[1024];
+        vsnprintf(buf, sizeof(buf), fmt, vl);
+        if (level <= AV_LOG_FATAL)
+        {
+            printf("FFMPEG(FATAL): %s", buf);
+        }
+        else if (level <= AV_LOG_ERROR)
+        {
+            printf("FFMPEG(ERROR): %s", buf);
+        }
+        else if (level <= AV_LOG_WARNING)
+        {
+            printf("FFMPEG(WARNING): %s", buf);
+        }
+        else if (level <= AV_LOG_INFO)
+        {
+            printf("FFMPEG(INFO): %s", buf);
+        }
+        else if (level <= AV_LOG_VERBOSE)
+        {
+            printf("FFMPEG(VERBOSE): %s", buf);
+        }
+        else if (level <= AV_LOG_DEBUG)
+        {
+            printf("FFMPEG(DEBUG): %s", buf);
+        }
+        else if (level <= AV_LOG_TRACE)
+        {
+            printf("FFMPEG(TRACE): %s", buf);
+        }
     }
-    else if (level <= AV_LOG_ERROR)
-    {
-        printf("FFMPEG(ERROR): %s", buf);
-    }
-    else if (level <= AV_LOG_WARNING)
-    {
-        printf("FFMPEG(WARNING): %s", buf);
-    }
-    else if (level <= AV_LOG_INFO)
-    {
-        printf("FFMPEG(INFO): %s", buf);
-    }
-    else if (level <= AV_LOG_VERBOSE)
-    {
-        printf("FFMPEG(VERBOSE): %s", buf);
-    }
-    else if (level <= AV_LOG_DEBUG)
-    {
-        printf("FFMPEG(DEBUG): %s", buf);
-    }
-    else if (level <= AV_LOG_TRACE)
-    {
-        printf("FFMPEG(TRACE): %s", buf);
-    }
-}
 
-static inline void init_ffmpeg_environment(int log_level = AV_LOG_ERROR)
-{
-    g_log_level = log_level;
-    av_log_set_callback(ffmpeg_log_cb);
-}
+    static inline void init_ffmpeg_environment(int log_level = AV_LOG_ERROR)
+    {
+        g_log_level = log_level;
+        av_log_set_callback(ffmpeg_log_cb);
+    }
 
 }; // namespace Myffmpeg
 
@@ -185,6 +189,8 @@ public:
     void operator=(MyAVFrame &src_frame)
     {
         this->clear();
+        if (avFrame)
+            av_frame_free(&avFrame);
         this->avFrame     = src_frame.avFrame;
         src_frame.avFrame = av_frame_alloc();
         assert(src_frame.avFrame);
@@ -548,7 +554,8 @@ public:
         m_codec_type = AVCodecDecoder;
         return init_from_format(formatContext, stream_idx, avcodec_find_decoder, nullptr, setExtraParameter);
     }
-    int init_decoder(MyAVFormatContext &fmt, int stream_idx, std::function<void(AVCodecContext *)> setExtraParameter = nullptr)
+    int init_decoder(MyAVFormatContext &fmt, int stream_idx,
+                     std::function<void(AVCodecContext *)> setExtraParameter = nullptr)
     {
         return init_decoder(fmt.get(), stream_idx, setExtraParameter);
     }
@@ -581,7 +588,8 @@ public:
         return init_encoder(fmt.get(), stream_idx, timeBase, setExtraParameter);
     }
 
-    int init_encoder(AVCodecID codec_id, AVRational timeBase, std::function<void(AVCodecContext *)> setExtraParameter = nullptr)
+    int init_encoder(AVCodecID codec_id, AVRational timeBase,
+                     std::function<void(AVCodecContext *)> setExtraParameter = nullptr)
     {
         clear();
         m_codec_type = AVCodecEncoder;
@@ -764,8 +772,9 @@ private:
         return 0;
     }
 
-    int init_from_format(AVFormatContext *formatContext, int stream_idx, const AVCodec *(*find_codec_func)(AVCodecID id),
-                         AVRational *timeBase = nullptr, std::function<void(AVCodecContext *)> setExtraParameter = nullptr)
+    int init_from_format(AVFormatContext *formatContext, int                          stream_idx,
+                         const AVCodec *(*find_codec_func)(AVCodecID id), AVRational *timeBase = nullptr,
+                         std::function<void(AVCodecContext *)> setExtraParameter = nullptr)
     {
         AVCodecParameters *codec_par = formatContext->streams[stream_idx]->codecpar;
         if (!codec_par)
@@ -791,7 +800,8 @@ private:
         return init(nullptr, timeBase, setExtraParameter);
     }
 
-    int init_by_codec_id(AVCodecID codec_id, const AVCodec *(*find_codec_func)(AVCodecID id), AVRational *timeBase = nullptr,
+    int init_by_codec_id(AVCodecID   codec_id, const AVCodec *(*find_codec_func)(AVCodecID id),
+                         AVRational *timeBase                                    = nullptr,
                          std::function<void(AVCodecContext *)> setExtraParameter = nullptr)
     {
         codec = find_codec_func(codec_id);
@@ -805,7 +815,8 @@ private:
     }
 
     int init_by_codec_name(const char *codecName, const AVCodec *(*find_codec_func)(const char *codecName),
-                           AVRational *timeBase = nullptr, std::function<void(AVCodecContext *)> setExtraParameter = nullptr)
+                           AVRational *timeBase                                    = nullptr,
+                           std::function<void(AVCodecContext *)> setExtraParameter = nullptr)
     {
         codec = find_codec_func(codecName);
         if (!codec)
@@ -841,7 +852,8 @@ public:
             sws_freeContext(swsContext);
         swsContext = nullptr;
     }
-    int init(int srcW, int srcH, enum AVPixelFormat srcFormat, int dstW, int dstH, enum AVPixelFormat dstFormat, int flags = 0)
+    int init(int srcW, int srcH, enum AVPixelFormat srcFormat, int dstW, int dstH, enum AVPixelFormat dstFormat,
+             int flags = 0)
     {
         clear();
         swsContext = sws_getContext(srcW, srcH, srcFormat, dstW, dstH, dstFormat, flags, nullptr, nullptr, nullptr);
@@ -883,8 +895,8 @@ public:
     int init(const AVChannelLayout *out_ch_layout, enum AVSampleFormat out_sample_fmt, int out_sample_rate,
              const AVChannelLayout *in_ch_layout, enum AVSampleFormat in_sample_fmt, int in_sample_rate)
     {
-        int ret = swr_alloc_set_opts2(&swrContext, out_ch_layout, out_sample_fmt, out_sample_rate, in_ch_layout, in_sample_fmt,
-                                      in_sample_rate, 0, nullptr);
+        int ret = swr_alloc_set_opts2(&swrContext, out_ch_layout, out_sample_fmt, out_sample_rate, in_ch_layout,
+                                      in_sample_fmt, in_sample_rate, 0, nullptr);
         if (ret < 0)
         {
             myffmpeg_dbg("alloc fail: %s\n", ffmpeg_make_err_string(ret));
@@ -917,3 +929,5 @@ public:
 private:
     SwrContext *swrContext = nullptr;
 };
+
+#endif
