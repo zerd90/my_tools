@@ -16,17 +16,16 @@ public:
     };
     virtual ~MyThread();
 
-
     int start();
     int stop();
 
     THREAD_STATE_E getState();
-    bool isRunning();
+    bool           isRunning();
 
 protected:
     virtual void   starting() {}
     virtual void   stopping() {}
-    virtual void   run()   = 0;
+    virtual void   run()  = 0;
     THREAD_STATE_E mState = STATE_UNSTART;
 
 private:
