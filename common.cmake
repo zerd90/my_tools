@@ -10,8 +10,8 @@ endif()
 
 message(STATUS "compiler: ${CMAKE_CXX_COMPILER_ID}")
 
-if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
-elseif("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+if(${CMAKE_CXX_COMPILER_ID} EQUAL Clang)
+elseif(${CMAKE_CXX_COMPILER_ID} EQUAL GNU)
 	# add_compile_options("-Werror")
 	add_compile_options("-Wall")
 
@@ -22,8 +22,8 @@ elseif("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
 		endif()
 	endif()
 
-elseif("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Intel")
-elseif("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
+elseif(${CMAKE_CXX_COMPILER_ID} EQUAL Intel)
+elseif(${CMAKE_CXX_COMPILER_ID} EQUAL MSVC)
 	add_compile_options("/W4")
 	add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
 	add_compile_options("$<$<C_COMPILER_ID:MSVC>:/utf-8>")
