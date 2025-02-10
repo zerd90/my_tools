@@ -16,6 +16,8 @@ extern "C"
 #include "libswresample/swresample.h"
 }
 
+#include "basic_tools.h"
+
 #ifdef MYFFMPEG_DEBUG
     #define myffmpeg_dbg(fmt, ...) fprintf(stderr, "[%s:%d]: " fmt, __FUNCTION__, __LINE__, ##__VA_ARGS__)
 #else
@@ -84,6 +86,7 @@ namespace Myffmpeg
     static int         g_log_level = AV_LOG_WARNING;
     static inline void ffmpeg_log_cb(void *mod, int level, const char *fmt, va_list vl)
     {
+        UNUSED(mod);
         if (level > g_log_level)
             return;
 
@@ -791,12 +794,12 @@ private:
 
         return init(codec_par, timeBase, setExtraParameter);
     }
-    int init_by_codec(const AVCodec *codec, AVRational *timeBase = nullptr,
+    int init_by_codec(const AVCodec *newCodec, AVRational *timeBase = nullptr,
                       std::function<void(AVCodecContext *)> setExtraParameter = nullptr)
     {
-        if (!codec)
+        if (!newCodec)
             return -1;
-        this->codec = codec;
+        this->codec = newCodec;
         return init(nullptr, timeBase, setExtraParameter);
     }
 
