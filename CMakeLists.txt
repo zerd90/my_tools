@@ -22,6 +22,10 @@ if(NOT PROJECT_IS_TOP_LEVEL)
 		${PROJECT_NAME}
 		PARENT_SCOPE
 	)
+else()
+	if(WIN32 AND ${CMAKE_CXX_COMPILER_ID} EQUAL MSVC)
+		add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
+	endif()
 endif()
 
 # 头文件路径

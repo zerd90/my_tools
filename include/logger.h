@@ -162,7 +162,7 @@ namespace Log
                                || decay_equiv<T, long>::value || decay_equiv<T, unsigned long>::value
                                || decay_equiv<T, long long>::value || decay_equiv<T, unsigned long long>::value
                                || decay_equiv<T, float>::value || decay_equiv<T, double>::value
-                               || std::is_pointer<T>::value)
+                               || std::is_pointer<T>::value || std::is_enum<T>::value)
             {
                 arg = std::make_shared<ArgBaseType<T>>(arg1);
             }
