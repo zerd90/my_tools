@@ -1,6 +1,8 @@
 #ifndef Z_BASIC_TOOLS_H
 #define Z_BASIC_TOOLS_H
 
+#include <functional>
+
 #undef MIN
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 
@@ -21,5 +23,21 @@
 #ifndef UNUSED
     #define UNUSED(x) (void)(x)
 #endif
+
+class ResourceGuard
+{
+public:
+    ResourceGuard(std::function<void()> f) : mFunc(f) {}
+    virtual ~ResourceGuard()
+    {
+        if (!mDismissed)
+            mFunc();
+    }
+    void dismiss() { mDismissed = true; }
+
+private:
+    bool                  mDismissed = false;
+    std::function<void()> mFunc;
+};
 
 #endif

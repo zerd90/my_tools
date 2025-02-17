@@ -4,11 +4,6 @@ cmake_minimum_required(VERSION 3.10)
 # 项目名称
 project(my_tools)
 
-if(NOT DEFINED CMAKE_CXX_STANDARD)
-	set(CMAKE_CXX_STANDARD 17)
-	set(CMAKE_CXX_STANDARD_REQUIRED True)
-endif()
-
 # 使用通配符添加多个源文件
 file(GLOB MY_TOOLS_SRC_LIST "./src/*.cpp")
 
@@ -23,7 +18,8 @@ if(NOT PROJECT_IS_TOP_LEVEL)
 		PARENT_SCOPE
 	)
 else()
-	if(WIN32 AND ${CMAKE_CXX_COMPILER_ID} EQUAL MSVC)
+	set(CMAKE_CXX_STANDARD 17)
+	if(WIN32)
 		add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
 	endif()
 endif()
