@@ -9,11 +9,19 @@
 
 extern "C"
 {
+#ifdef _MSC_VER
+    // remove warnings from ffmpeg headers
+    #pragma warning(push)
+    #pragma warning(disable : 4244)
+#endif
 #include "libavcodec/avcodec.h"
 #include "libavformat/avformat.h"
 #include "libavutil/avutil.h"
 #include "libswscale/swscale.h"
 #include "libswresample/swresample.h"
+#ifdef _MSC_VER
+    #pragma warning(pop)
+#endif
 }
 
 #include "basic_tools.h"
@@ -539,8 +547,6 @@ private:
         AVFormatOutput  = 1,
     } m_format_dir = AVFormatUnknown;
 };
-
-#include <functional>
 
 class MyAVCodecContext
 {
