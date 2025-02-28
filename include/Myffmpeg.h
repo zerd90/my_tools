@@ -89,8 +89,6 @@ static inline const char *ffmpeg_make_err_string(int errCode)
 
 namespace Myffmpeg
 {
-    using MutexGuard = std::lock_guard<std::mutex>;
-
     static int         g_log_level = AV_LOG_WARNING;
     static inline void ffmpeg_log_cb(void *mod, int level, const char *fmt, va_list vl)
     {
@@ -138,39 +136,6 @@ namespace Myffmpeg
 
 }; // namespace Myffmpeg
 
-class IResourcePtr
-{
-public:
-    IResourcePtr()
-    {
-        allocResource();
-        refCount = 1;
-    }
-    void addRef()
-    {
-        Myffmpeg::MutexGuard locker(refLock);
-        refCount++;
-    }
-    void release()
-    {
-        Myffmpeg::MutexGuard locker(refLock);
-        refCount--;
-        if (0 == refCount)
-        {
-            releaseResource();
-        }
-    }
-
-private:
-    virtual void allocResource() {}
-    virtual void releaseResource() {}
-
-private:
-    std::mutex refLock;
-    int        refCount = 0;
-    // _T *resource;
-};
-
 class MyAVFrame
 {
 public:
@@ -207,13 +172,23 @@ public:
         assert(src_frame.avFrame);
     }
 
-    int get_buffer(int width, int height, AVPixelFormat fmt)
+    int getBuffer(int width, int height, AVPixelFormat fmt)
     {
         clear();
 
         avFrame->width  = width;
         avFrame->height = height;
         avFrame->format = fmt;
+        return av_frame_get_buffer(avFrame, 0);
+    }
+    int getBuffer(int nb_samples, int sampleRate, const AVChannelLayout &channelLayout, AVSampleFormat fmt)
+    {
+        clear();
+
+        avFrame->sample_rate = sampleRate;
+        avFrame->nb_samples  = nb_samples;
+        avFrame->format      = fmt;
+        avFrame->ch_layout   = channelLayout;
         return av_frame_get_buffer(avFrame, 0);
     }
 
@@ -262,7 +237,7 @@ public:
         assert(srcPacket.avPacket);
     }
 
-    int get_buffer(int size)
+    int getBuffer(int size)
     {
         clear();
         return av_packet_from_data(avPacket, (uint8_t *)av_malloc(size), size);
@@ -284,14 +259,14 @@ private:
 class MyAVFormatContext
 {
 #define CHECK_INPUT()                  \
-    if (m_format_dir != AVFormatInput) \
+    if (mFormatDir != AVFormatInput)   \
     {                                  \
         myffmpeg_dbg("not Input!!\n"); \
         return AVERROR(EINVAL);        \
     }
 
 #define CHECK_OUTPUT()                  \
-    if (m_format_dir != AVFormatOutput) \
+    if (mFormatDir != AVFormatOutput)   \
     {                                   \
         myffmpeg_dbg("not Output!!\n"); \
         return AVERROR(EINVAL);         \
@@ -307,11 +282,11 @@ public:
     {
         if (formatContext)
         {
-            if (formatContext->pb && AVFormatOutput == m_format_dir)
+            if (formatContext->pb && AVFormatOutput == mFormatDir)
             {
                 closeOutputIO();
             }
-            if (AVFormatInput == m_format_dir)
+            if (AVFormatInput == mFormatDir)
                 avformat_close_input(&formatContext);
             else
                 avformat_free_context(formatContext);
@@ -319,7 +294,7 @@ public:
         }
     }
 
-    int open_input(const char *file_path, const AVInputFormat *fmt = nullptr, AVDictionary **options = nullptr)
+    int openInput(const char *file_path, const AVInputFormat *fmt = nullptr, AVDictionary **options = nullptr)
     {
         int ret;
         clear();
@@ -337,11 +312,11 @@ public:
             clear();
             return ret;
         }
-        m_format_dir = AVFormatInput;
+        mFormatDir = AVFormatInput;
         return 0;
     }
 
-    int open_output(const char *file_path, const AVOutputFormat *fmt = nullptr, const char *format_name = nullptr)
+    int openOutput(const char *file_path, const AVOutputFormat *fmt = nullptr, const char *format_name = nullptr)
     {
         int ret = 0;
         clear();
@@ -352,7 +327,7 @@ public:
             myffmpeg_dbg("Could not create output context: %s\n", ffmpeg_make_err_string(ret));
             return ret;
         }
-        m_format_dir = AVFormatOutput;
+        mFormatDir = AVFormatOutput;
         return 0;
     }
 
@@ -455,7 +430,7 @@ public:
 
     // get next video stream after v_idx, passthrough -1 to get the first video stream
     // return the index
-    int get_next_video_stream(int v_idx)
+    int getNextVideoStream(int v_idx)
     {
         CHECK_HANDLE(formatContext);
         CHECK_INPUT();
@@ -468,8 +443,8 @@ public:
         return -1;
     }
 
-    // same as get_next_video_stream but get audio stream
-    int get_next_audio_stream(int a_idx)
+    // same as getNextVideoStream but get audio stream
+    int getNextAudioStream(int a_idx)
     {
         CHECK_HANDLE(formatContext);
         CHECK_INPUT();
@@ -482,7 +457,7 @@ public:
         return -1;
     }
 
-    int get_packet(AVPacket *pkt)
+    int getPacket(AVPacket *pkt)
     {
         CHECK_HANDLE(formatContext);
         CHECK_INPUT();
@@ -499,9 +474,9 @@ public:
         return 0;
     }
 
-    int get_packet(MyAVPacket &pkt) { return get_packet(pkt.get()); }
+    int getPacket(MyAVPacket &pkt) { return getPacket(pkt.get()); }
 
-    int get_next_packet_from_stream(AVPacket *pkt, int stream_idx)
+    int getNextPacketFromStream(AVPacket *pkt, int stream_idx)
     {
         CHECK_HANDLE(formatContext);
         CHECK_INPUT();
@@ -532,9 +507,9 @@ public:
         return 0;
     }
 
-    int get_next_packet_from_stream(MyAVPacket &pkt, int stream_idx)
+    int getNextPacketFromStream(MyAVPacket &pkt, int stream_idx)
     {
-        return get_next_packet_from_stream(pkt.get(), stream_idx);
+        return getNextPacketFromStream(pkt.get(), stream_idx);
     }
 
 private:
@@ -545,7 +520,7 @@ private:
         AVFormatUnknown = -1,
         AVFormatInput   = 0,
         AVFormatOutput  = 1,
-    } m_format_dir = AVFormatUnknown;
+    } mFormatDir = AVFormatUnknown;
 };
 
 class MyAVCodecContext
@@ -556,86 +531,86 @@ public:
 
     BASIC_METHODS(AVCodecContext, codecContext)
 
-    int init_decoder(AVFormatContext *formatContext, int stream_idx,
-                     std::function<void(AVCodecContext *)> setExtraParameter = nullptr)
+    int initDecoder(AVFormatContext *formatContext, int stream_idx,
+                    std::function<void(AVCodecContext *)> setExtraParameter = nullptr)
     {
         clear();
-        m_codec_type = AVCodecDecoder;
-        return init_from_format(formatContext, stream_idx, avcodec_find_decoder, nullptr, setExtraParameter);
+        mCodecType = AVCodecDecoder;
+        return initByAVFormat(formatContext, stream_idx, avcodec_find_decoder, nullptr, setExtraParameter);
     }
-    int init_decoder(MyAVFormatContext &fmt, int stream_idx,
-                     std::function<void(AVCodecContext *)> setExtraParameter = nullptr)
+    int initDecoder(MyAVFormatContext &fmt, int stream_idx,
+                    std::function<void(AVCodecContext *)> setExtraParameter = nullptr)
     {
-        return init_decoder(fmt.get(), stream_idx, setExtraParameter);
+        return initDecoder(fmt.get(), stream_idx, setExtraParameter);
     }
 
-    int init_decoder(AVCodecID codec_id, std::function<void(AVCodecContext *)> setExtraParameter = nullptr)
+    int initDecoder(AVCodecID codec_id, std::function<void(AVCodecContext *)> setExtraParameter = nullptr)
     {
         clear();
-        m_codec_type = AVCodecDecoder;
-        return init_by_codec_id(codec_id, avcodec_find_decoder, nullptr, setExtraParameter);
+        mCodecType = AVCodecDecoder;
+        return initByCodecId(codec_id, avcodec_find_decoder, nullptr, setExtraParameter);
     }
 
-    int init_decoder(const char *codecName, std::function<void(AVCodecContext *)> setExtraParameter = nullptr)
+    int initDecoder(const char *codecName, std::function<void(AVCodecContext *)> setExtraParameter = nullptr)
     {
         clear();
-        m_codec_type = AVCodecDecoder;
-        return init_by_codec_name(codecName, avcodec_find_decoder_by_name, nullptr, setExtraParameter);
+        mCodecType = AVCodecDecoder;
+        return initByCodecName(codecName, avcodec_find_decoder_by_name, nullptr, setExtraParameter);
     }
 
-    int init_encoder(AVFormatContext *formatContext, int stream_idx, AVRational timeBase,
-                     std::function<void(AVCodecContext *)> setExtraParameter = nullptr)
+    int initEncoder(AVFormatContext *formatContext, int stream_idx, AVRational timeBase,
+                    std::function<void(AVCodecContext *)> setExtraParameter = nullptr)
     {
         clear();
-        m_codec_type = AVCodecEncoder;
-        return init_from_format(formatContext, stream_idx, avcodec_find_encoder, &timeBase, setExtraParameter);
+        mCodecType = AVCodecEncoder;
+        return initByAVFormat(formatContext, stream_idx, avcodec_find_encoder, &timeBase, setExtraParameter);
     }
 
-    int init_encoder(MyAVFormatContext &fmt, int stream_idx, AVRational timeBase,
-                     std::function<void(AVCodecContext *)> setExtraParameter = nullptr)
+    int initEncoder(MyAVFormatContext &fmt, int stream_idx, AVRational timeBase,
+                    std::function<void(AVCodecContext *)> setExtraParameter = nullptr)
     {
-        return init_encoder(fmt.get(), stream_idx, timeBase, setExtraParameter);
+        return initEncoder(fmt.get(), stream_idx, timeBase, setExtraParameter);
     }
 
-    int init_encoder(AVCodecID codec_id, AVRational timeBase,
-                     std::function<void(AVCodecContext *)> setExtraParameter = nullptr)
-    {
-        clear();
-        m_codec_type = AVCodecEncoder;
-        return init_by_codec_id(codec_id, avcodec_find_encoder, &timeBase, setExtraParameter);
-    }
-
-    int init_encoder(const char *codecName, AVRational timeBase,
-                     std::function<void(AVCodecContext *)> setExtraParameter = nullptr)
+    int initEncoder(AVCodecID codec_id, AVRational timeBase,
+                    std::function<void(AVCodecContext *)> setExtraParameter = nullptr)
     {
         clear();
-        m_codec_type = AVCodecEncoder;
-        return init_by_codec_name(codecName, avcodec_find_encoder_by_name, &timeBase, setExtraParameter);
+        mCodecType = AVCodecEncoder;
+        return initByCodecId(codec_id, avcodec_find_encoder, &timeBase, setExtraParameter);
+    }
+
+    int initEncoder(const char *codecName, AVRational timeBase,
+                    std::function<void(AVCodecContext *)> setExtraParameter = nullptr)
+    {
+        clear();
+        mCodecType = AVCodecEncoder;
+        return initByCodecName(codecName, avcodec_find_encoder_by_name, &timeBase, setExtraParameter);
     }
 
     const AVCodec *get_codec() { return codec; }
 
 #define CHECK_ENCODER()                            \
-    if (m_codec_type != AVCodecEncoder)            \
+    if (mCodecType != AVCodecEncoder)              \
     {                                              \
         myffmpeg_dbg("This is not a Encoder!!\n"); \
         return AVERROR(EINVAL);                    \
     }
 #define CHECK_DECODER()                            \
-    if (m_codec_type != AVCodecDecoder)            \
+    if (mCodecType != AVCodecDecoder)              \
     {                                              \
         myffmpeg_dbg("This is not a Decoder!!\n"); \
         return AVERROR(EINVAL);                    \
     }
 
-#define CHECK_OPENED()                                                                             \
-    if (!opened)                                                                                   \
-    {                                                                                              \
-        myffmpeg_dbg("%s not Opened!!\n", AVCodecEncoder == m_codec_type ? "Encoder" : "Decoder"); \
-        return AVERROR(EINVAL);                                                                    \
+#define CHECK_OPENED()                                                                           \
+    if (!opened)                                                                                 \
+    {                                                                                            \
+        myffmpeg_dbg("%s not Opened!!\n", AVCodecEncoder == mCodecType ? "Encoder" : "Decoder"); \
+        return AVERROR(EINVAL);                                                                  \
     }
 
-    int send_packet(AVPacket *pkt)
+    int sendPacket(AVPacket *pkt)
     {
         CHECK_HANDLE(codecContext);
         CHECK_DECODER();
@@ -656,9 +631,9 @@ public:
         return 0;
     }
 
-    int send_packet(MyAVPacket &pkt) { return send_packet(pkt.get()); }
+    int sendPacket(MyAVPacket &pkt) { return sendPacket(pkt.get()); }
 
-    int receive_frame(AVFrame *frm)
+    int receiveFrame(AVFrame *frm)
     {
         CHECK_HANDLE(codecContext);
         CHECK_DECODER();
@@ -678,9 +653,9 @@ public:
         return 0;
     }
 
-    int receive_frame(MyAVFrame &frm) { return receive_frame(frm.get()); }
+    int receiveFrame(MyAVFrame &frm) { return receiveFrame(frm.get()); }
 
-    int send_frame(AVFrame *frm)
+    int sendFrame(AVFrame *frm)
     {
         CHECK_HANDLE(codecContext);
         CHECK_ENCODER();
@@ -702,9 +677,9 @@ public:
         return 0;
     }
 
-    int send_frame(MyAVFrame &frm) { return send_frame(frm.get()); }
+    int sendFrame(MyAVFrame &frm) { return sendFrame(frm.get()); }
 
-    int receive_packet(AVPacket *pkt)
+    int receivePacket(AVPacket *pkt)
     {
         CHECK_HANDLE(codecContext);
         CHECK_ENCODER();
@@ -721,7 +696,7 @@ public:
         return 0;
     }
 
-    int receive_packet(MyAVPacket &pkt) { return receive_packet(pkt.get()); }
+    int receivePacket(MyAVPacket &pkt) { return receivePacket(pkt.get()); }
 
     // this will free the context
     void clear()
@@ -730,8 +705,8 @@ public:
         {
             avcodec_free_context(&codecContext);
         }
-        m_codec_type = AVCodecUnknown;
-        opened       = false;
+        mCodecType = AVCodecUnknown;
+        opened     = false;
     }
 
 private:
@@ -739,7 +714,7 @@ private:
              std::function<void(AVCodecContext *)> setExtraParameter = nullptr)
     {
         int ret = 0;
-        if (AVCodecEncoder == m_codec_type && !timeBase)
+        if (AVCodecEncoder == mCodecType && !timeBase)
         {
             myffmpeg_dbg("TimeBase need to be set for encoder\n");
             return -1;
@@ -761,7 +736,7 @@ private:
             }
         }
 
-        if (AVCodecEncoder == m_codec_type)
+        if (AVCodecEncoder == mCodecType)
         {
             codecContext->time_base = *timeBase;
             myffmpeg_dbg("Set timeBase %d %d\n", codecContext->time_base.num, codecContext->time_base.den);
@@ -781,9 +756,9 @@ private:
         return 0;
     }
 
-    int init_from_format(AVFormatContext *formatContext, int                          stream_idx,
-                         const AVCodec *(*find_codec_func)(AVCodecID id), AVRational *timeBase = nullptr,
-                         std::function<void(AVCodecContext *)> setExtraParameter = nullptr)
+    int initByAVFormat(AVFormatContext *formatContext, int stream_idx, const AVCodec *(*find_codec_func)(AVCodecID id),
+                       AVRational                           *timeBase          = nullptr,
+                       std::function<void(AVCodecContext *)> setExtraParameter = nullptr)
     {
         AVCodecParameters *codec_par = formatContext->streams[stream_idx]->codecpar;
         if (!codec_par)
@@ -800,8 +775,9 @@ private:
 
         return init(codec_par, timeBase, setExtraParameter);
     }
-    int init_by_codec(const AVCodec *newCodec, AVRational *timeBase = nullptr,
-                      std::function<void(AVCodecContext *)> setExtraParameter = nullptr)
+
+    int initByCodec(const AVCodec *newCodec, AVRational *timeBase = nullptr,
+                    std::function<void(AVCodecContext *)> setExtraParameter = nullptr)
     {
         if (!newCodec)
             return -1;
@@ -809,9 +785,8 @@ private:
         return init(nullptr, timeBase, setExtraParameter);
     }
 
-    int init_by_codec_id(AVCodecID   codec_id, const AVCodec *(*find_codec_func)(AVCodecID id),
-                         AVRational *timeBase                                    = nullptr,
-                         std::function<void(AVCodecContext *)> setExtraParameter = nullptr)
+    int initByCodecId(AVCodecID   codec_id, const AVCodec *(*find_codec_func)(AVCodecID id),
+                      AVRational *timeBase = nullptr, std::function<void(AVCodecContext *)> setExtraParameter = nullptr)
     {
         codec = find_codec_func(codec_id);
         if (!codec)
@@ -823,9 +798,9 @@ private:
         return init(nullptr, timeBase, setExtraParameter);
     }
 
-    int init_by_codec_name(const char *codecName, const AVCodec *(*find_codec_func)(const char *codecName),
-                           AVRational *timeBase                                    = nullptr,
-                           std::function<void(AVCodecContext *)> setExtraParameter = nullptr)
+    int initByCodecName(const char *codecName, const AVCodec *(*find_codec_func)(const char *codecName),
+                        AVRational *timeBase                                    = nullptr,
+                        std::function<void(AVCodecContext *)> setExtraParameter = nullptr)
     {
         codec = find_codec_func(codecName);
         if (!codec)
@@ -847,7 +822,7 @@ private:
         AVCodecUnknown = -1,
         AVCodecEncoder = 0,
         AVCodecDecoder = 1,
-    } m_codec_type = AVCodecUnknown;
+    } mCodecType = AVCodecUnknown;
 };
 
 class MySwsContext
@@ -871,9 +846,9 @@ public:
         return 0;
     }
 
-    int scale_frame(MyAVFrame &dst, MyAVFrame &src) { return scale_frame(dst.get(), src.get()); }
+    int scaleFrame(MyAVFrame &dst, MyAVFrame &src) { return scaleFrame(dst.get(), src.get()); }
 
-    int scale_frame(AVFrame *dst, AVFrame *src)
+    int scaleFrame(AVFrame *dst, AVFrame *src)
     {
         int ret = sws_scale_frame(swsContext, dst, src);
         if (ret < 0)

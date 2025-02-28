@@ -85,16 +85,16 @@ uint64_t get_file_size(FILE *fp)
 
 int BinaryReader::check_buffer(uint64_t read_pos, uint64_t read_size)
 {
-    if (read_pos >= file_size)
+    if (read_pos >= fileSize)
     {
         return -1;
     }
 
-    uint64_t can_rd_sz = MIN(read_size, file_size - read_pos);
+    uint64_t can_rd_sz = MIN(read_size, fileSize - read_pos);
 
     if (buffer_start_pos > read_pos || read_pos + can_rd_sz > buffer_start_pos + buffer_contain_size)
     {
-        buffer_contain_size = MIN(file_size - read_pos, buffer_size);
+        buffer_contain_size = MIN(fileSize - read_pos, buffer_size);
         if (fseek64(fp, read_pos, SEEK_SET) < 0)
         {
             Z_ERR("seek to {#x} fail {}\n", read_pos, strerror(errno));
@@ -155,7 +155,7 @@ int BinaryReader::open(std::string &newFileName)
 
     fp = tmpfp;
 
-    file_size = get_file_size(fp);
+    fileSize = get_file_size(fp);
     _read_pos = 0;
 
     fn = newFileName;
@@ -166,7 +166,7 @@ int BinaryReader::open(std::string &newFileName)
 
     if (read_buffer)
     {
-        buffer_contain_size = MIN(file_size, buffer_size);
+        buffer_contain_size = MIN(fileSize, buffer_size);
         size_t rd_size      = fread(read_buffer, 1, buffer_contain_size, fp);
         if (rd_size != buffer_contain_size)
         {
@@ -202,7 +202,7 @@ uint64_t BinaryReader::read(void *buf, uint64_t len)
 {
     if (!buf)
     {
-        _read_pos = MIN(_read_pos + len, file_size);
+        _read_pos = MIN(_read_pos + len, fileSize);
         return 0;
     }
 
@@ -248,9 +248,9 @@ string BinaryReader::read_str(uint64_t max_len)
 {
     string dst_string;
 
-    if (max_len > file_size - _read_pos)
+    if (max_len > fileSize - _read_pos)
     {
-        max_len = file_size - _read_pos;
+        max_len = fileSize - _read_pos;
     }
 
     char     c       = 0;
@@ -432,7 +432,7 @@ int64_t BinaryReader::read_sn(uint16_t bytes, bool reverse)
 
 uint64_t BinaryReader::set_cursor(uint64_t pos)
 {
-    _read_pos = MIN(pos, file_size);
+    _read_pos = MIN(pos, fileSize);
     return _read_pos;
 }
 
@@ -440,7 +440,7 @@ uint64_t BinaryReader::set_file_cursor(uint64_t abs_offset)
 {
     int ret = 0;
     (void)ret;
-    uint64_t act_mov = MIN(abs_offset, file_size);
+    uint64_t act_mov = MIN(abs_offset, fileSize);
     ret              = fseek64(fp, act_mov, SEEK_SET);
     if (ret < 0)
     {

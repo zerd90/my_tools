@@ -36,7 +36,7 @@ struct DataBlock
         length = len;
     }
 
-    uint8_t *ptr() { return this->data.get(); }
+    uint8_t *ptr() const { return this->data.get(); }
 };
 
 struct BinaryReader
@@ -51,7 +51,7 @@ struct BinaryReader
 
     bool opened = false;
 
-    uint64_t file_size = 0;
+    uint64_t fileSize = 0;
     uint64_t _read_pos = 0;
 
 private:

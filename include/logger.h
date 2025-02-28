@@ -29,10 +29,10 @@ enum LOG_LEVEL
     LOG_LEVEL_ALL  = LOG_LEVEL_DBG,
     LOG_LEVEL_BUTT,
 };
-
+#if defined(_WIN32) || defined(WIN32)
+std::string  stringTransToConsoleCP(const std::string &orig);
 std::wstring stringToWstring(const std::string &orig);
-
-std::string wstringToString(const std::wstring &wstr);
+#endif
 
 namespace Log
 {
@@ -46,9 +46,10 @@ namespace Log
     };
 
     template <typename T, typename U>
-    struct decay_equiv : std::is_same<typename std::decay<T>::type, U>::type
+    struct decay_equiv : std::is_same<std::decay_t<T>, std::decay_t<U>>::type
     {
     };
+    
 
     template <typename T>
     struct ArgChar : ArgBase
@@ -79,6 +80,7 @@ namespace Log
         }
     };
 
+#if defined(WIN32) || defined(_WIN32)
     template <typename T>
     struct ArgWString : ArgBase
     {
@@ -89,6 +91,7 @@ namespace Log
 
         std::string get_ss(std::string var_fmt = std::string()) override { return wstringToString(arg); }
     };
+#endif
 
     template <typename T>
     struct ArgBaseType : ArgBase
@@ -149,6 +152,7 @@ namespace Log
             {
                 arg = std::make_shared<ArgChar<T>>(arg1);
             }
+#if defined(WIN32) || defined(_WIN32)
             else if constexpr (decay_equiv<T, std::wstring>::value)
             {
                 arg = std::make_shared<ArgWString<T>>(arg1);
@@ -157,6 +161,7 @@ namespace Log
             {
                 arg = std::make_shared<ArgWString<std::wstring>>(std::wstring(arg1));
             }
+#endif
             else if constexpr (decay_equiv<T, short>::value || decay_equiv<T, unsigned short>::value
                                || decay_equiv<T, int>::value || decay_equiv<T, unsigned int>::value
                                || decay_equiv<T, long>::value || decay_equiv<T, unsigned long>::value
@@ -265,15 +270,17 @@ namespace Log
 #define FORMAT_CSTR(fmt, ...) Log::format(fmt, ##__VA_ARGS__).c_str()
 
 #if defined(WIN32) || defined(_WIN32)
-    #define color_output(l, wAttributes)                                                                         \
-        template <typename... Args>                                                                              \
-        void l(const char *fmt, Args &&...args)                                                                  \
-        {                                                                                                        \
-            HANDLE hStdout = GetStdHandle(STD_OUTPUT_HANDLE);                                                    \
-            SetConsoleTextAttribute(hStdout, wAttributes);                                                       \
-            fprintf(stderr, "%s", format(fmt, args...).c_str());                                                 \
-            SetConsoleTextAttribute(hStdout,                                                                     \
-                                    FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE | FOREGROUND_INTENSITY); \
+    #define color_output(l, colorAttributes)                                      \
+        template <typename... Args>                                               \
+        void l(const char *fmt, Args &&...args)                                   \
+        {                                                                         \
+            HANDLE                     hStdout = GetStdHandle(STD_OUTPUT_HANDLE); \
+            CONSOLE_SCREEN_BUFFER_INFO csbiInfo;                                  \
+            GetConsoleScreenBufferInfo(hStdout, &csbiInfo);                       \
+            auto wOldColorAttrs = csbiInfo.wAttributes;                           \
+            SetConsoleTextAttribute(hStdout, colorAttributes);                    \
+            fprintf(stderr, "%s", format(fmt, args...).c_str());                  \
+            SetConsoleTextAttribute(hStdout, wOldColorAttrs);                     \
         }
 
     color_output(blue, FOREGROUND_BLUE);
@@ -364,7 +371,7 @@ static inline const char *get_file_name(const char *fn)
     return fn;
 }
 
-static inline std::string get_file_name(std::string &fn)
+static inline std::string get_file_name(const std::string &fn)
 {
     uint64_t len  = fn.length();
     size_t   pos1 = fn.rfind('/');
