@@ -10,6 +10,43 @@
 
 using std::string;
 
+#if defined(WIN32) || defined(_WIN32)
+using std::wstring;
+wstring stringToWstring(const string &orig)
+{
+    int               n = ::MultiByteToWideChar(CP_UTF8, 0, orig.c_str(), -1, nullptr, 0);
+    wchar_t* wStr = new wchar_t[n];
+    ::MultiByteToWideChar(CP_UTF8, 0, orig.c_str(), -1, wStr, n);
+    wstring res(wStr);
+    return res;
+}
+std::string stringTransToConsoleCP(const std::string &orig)
+{
+    // from ASCII To Unicode
+    int      nlen     = MultiByteToWideChar(CP_ACP, 0, orig.c_str(), -1, NULL, NULL);
+    wchar_t *pUnicode = new wchar_t[nlen];
+    memset(pUnicode, 0, nlen * sizeof(wchar_t));
+    MultiByteToWideChar(CP_ACP, 0, orig.c_str(), -1, (LPWSTR)pUnicode, nlen);
+    // From Unicode To Console CP
+    int consoleCP = GetConsoleCP();
+    // printf("consoleCP=%d\n", consoleCP);
+    nlen        = WideCharToMultiByte(consoleCP, 0, pUnicode, -1, NULL, 0, NULL, NULL);
+    char *cConsoleCP = new char[nlen];
+    WideCharToMultiByte(consoleCP, 0, pUnicode, -1, cConsoleCP, nlen, NULL, NULL);
+    std::string strUTF8 = cConsoleCP;
+
+    delete[] pUnicode;
+    delete[] cConsoleCP;
+
+    return strUTF8;
+}
+#else
+std::string stringTransToConsoleCP(const std::string &orig)
+{
+    return orig;
+}
+#endif
+
 namespace Log
 {
     LOG_LEVEL log_level = LOG_LEVEL_ERR;
