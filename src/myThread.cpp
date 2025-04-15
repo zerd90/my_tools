@@ -1,3 +1,10 @@
+#ifdef _WIN32
+    #include <Windows.h>
+    #define cancelThread(handle) TerminateThread(handle, 0)
+#elif defined(__linux)
+    #include <pthread.h>
+    #define cancelThread(handle) pthread_cancel(handle)
+#endif
 #include "myThread.h"
 
 MyThread::~MyThread()
@@ -36,6 +43,11 @@ int MyThread::stop()
     mState = STATE_UNSTART;
 
     return 0;
+}
+void MyThread::cancel()
+{
+    cancelThread(_thread->native_handle());
+    delete _thread;
 }
 
 MyThread::THREAD_STATE_E MyThread::getState()
