@@ -18,6 +18,7 @@ public:
 
     int start();
     int stop();
+    void cancel();
 
     THREAD_STATE_E getState();
     bool           isRunning();
