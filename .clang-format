@@ -143,4 +143,4 @@ TabWidth:	4
 UseTab:	Never
 
 ShortNamespaceLines: 0
-AlignArrayOfStructures: Right
+AlignArrayOfStructures: Left
