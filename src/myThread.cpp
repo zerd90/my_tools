@@ -4,6 +4,9 @@
 #elif defined(__linux)
     #include <pthread.h>
     #define cancelThread(handle) pthread_cancel(handle)
+#else // MacOS
+    #include <pthread.h>
+    #define cancelThread(handle) pthread_cancel(handle)
 #endif
 #include "myThread.h"
 
