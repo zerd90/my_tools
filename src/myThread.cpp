@@ -50,6 +50,7 @@ int MyThread::stop()
 void MyThread::cancel()
 {
     cancelThread(_thread->native_handle());
+    _thread->join();
     delete _thread;
 }
 
