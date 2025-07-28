@@ -49,7 +49,6 @@ namespace Log
     struct decay_equiv : std::is_same<std::decay_t<T>, std::decay_t<U>>::type
     {
     };
-    
 
     template <typename T>
     struct ArgChar : ArgBase
@@ -89,7 +88,11 @@ namespace Log
         explicit ArgWString(T val) : arg(val) { static_assert(decay_equiv<T, std::wstring>::value, "type error"); }
         ~ArgWString() {}
 
-        std::string get_ss(std::string var_fmt = std::string()) override { return wstringToString(arg); }
+        std::string get_ss(std::string var_fmt = std::string()) override
+        {
+            (void)var_fmt;
+            return wstringToString(arg);
+        }
     };
 #endif
 
@@ -131,6 +134,7 @@ namespace Log
 
         std::string get_ss(std::string var_fmt = std::string()) override
         {
+            (void)var_fmt;
             std::ostringstream ss;
             ss << arg;
             return ss.str();
@@ -303,23 +307,23 @@ namespace Log
     color_output(white, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE | FOREGROUND_INTENSITY);
 
 #else
-    #define LOG_NONE "\033[0m"
-    #define LOG_BLACK "\033[0;30m"
-    #define LOG_DARK_GRAY "\033[1;30m"
-    #define LOG_BLUE "\033[0;34m"
-    #define LOG_LIGHT_BLUE "\033[1;34m"
-    #define LOG_GREEN "\033[0;32m"
-    #define LOG_LIGHT_GREEN "\033[1;32m"
-    #define LOG_CYAN "\033[0;36m"
-    #define LOG_LIGHT_CYAN "\033[1;36m"
-    #define LOG_RED "\033[0;31m"
-    #define LOG_LIGHT_RED "\033[1;31m"
-    #define LOG_PURPLE "\033[0;35m"
+    #define LOG_NONE         "\033[0m"
+    #define LOG_BLACK        "\033[0;30m"
+    #define LOG_DARK_GRAY    "\033[1;30m"
+    #define LOG_BLUE         "\033[0;34m"
+    #define LOG_LIGHT_BLUE   "\033[1;34m"
+    #define LOG_GREEN        "\033[0;32m"
+    #define LOG_LIGHT_GREEN  "\033[1;32m"
+    #define LOG_CYAN         "\033[0;36m"
+    #define LOG_LIGHT_CYAN   "\033[1;36m"
+    #define LOG_RED          "\033[0;31m"
+    #define LOG_LIGHT_RED    "\033[1;31m"
+    #define LOG_PURPLE       "\033[0;35m"
     #define LOG_LIGHT_PURPLE "\033[1;35m"
-    #define LOG_BROWN "\033[0;33m"
-    #define LOG_YELLOW "\033[1;33m"
-    #define LOG_LIGHT_GRAY "\033[0;37m"
-    #define LOG_WHITE "\033[1;37m"
+    #define LOG_BROWN        "\033[0;33m"
+    #define LOG_YELLOW       "\033[1;33m"
+    #define LOG_LIGHT_GRAY   "\033[0;37m"
+    #define LOG_WHITE        "\033[1;37m"
 
     #define color_output(l, u)                                   \
         template <typename... Args>                              \
@@ -358,7 +362,7 @@ namespace Log
     }
 }; // namespace Log
 
-static inline const char *get_file_name(const char *fn)
+[[maybe_unused]] static inline const char *get_file_name(const char *fn)
 {
     uint64_t len = strlen(fn);
     for (uint64_t i = len - 1; i >= 0; i--)
@@ -371,7 +375,7 @@ static inline const char *get_file_name(const char *fn)
     return fn;
 }
 
-static inline std::string get_file_name(const std::string &fn)
+[[maybe_unused]] static inline std::string get_file_name(const std::string &fn)
 {
     uint64_t len  = fn.length();
     size_t   pos1 = fn.rfind('/');
@@ -391,10 +395,9 @@ static inline std::string get_file_name(const std::string &fn)
     return fn;
 }
 
-std::string getBaseName(std::string &path);
-std::string getBaseName(std::string &&path);
-
-static inline std::string _CutParenthesesNTail(const char *s)
+std::string                                getBaseName(std::string &path);
+std::string                                getBaseName(std::string &&path);
+[[maybe_unused]] static inline std::string _CutParenthesesNTail(const char *s)
 {
     std::string prettyFunction(s);
     uint64_t    bracket = prettyFunction.rfind("(");
@@ -413,9 +416,9 @@ static inline std::string _CutParenthesesNTail(const char *s)
     } while (0)
 
 #define ZM_INFO(fmt, ...) ZM_LOG(green, fmt, ##__VA_ARGS__)
-#define ZM_ERR(fmt, ...) ZM_LOG(red, fmt, ##__VA_ARGS__)
+#define ZM_ERR(fmt, ...)  ZM_LOG(red, fmt, ##__VA_ARGS__)
 #define ZM_WARN(fmt, ...) ZM_LOG(yellow, fmt, ##__VA_ARGS__)
-#define ZM_DBG(fmt, ...) ZM_LOG(blue, fmt, ##__VA_ARGS__)
+#define ZM_DBG(fmt, ...)  ZM_LOG(blue, fmt, ##__VA_ARGS__)
 
 #define Z_ERR(fmt, ...)                            \
     do                                             \
