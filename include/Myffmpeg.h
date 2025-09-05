@@ -201,6 +201,9 @@ public:
 
     bool empty() { return nullptr == avFrame->data[0]; }
 
+    void copyPropsTo(AVFrame *dstFrame) { av_frame_copy_props(dstFrame, avFrame); }
+    void copyPropsTo(MyAVFrame &dstFrame) { copyPropsTo(dstFrame.avFrame); }
+
 private:
     AVFrame *avFrame = nullptr;
 };
@@ -235,6 +238,14 @@ public:
         this->avPacket     = srcPacket.avPacket;
         srcPacket.avPacket = av_packet_alloc();
         assert(srcPacket.avPacket);
+    }
+
+    int setBuffer(uint8_t *data, int size)
+    {
+        clear();
+        avPacket->data = data;
+        avPacket->size = size;
+        return 0;
     }
 
     int getBuffer(int size)
@@ -367,6 +378,19 @@ public:
         avcodec_free_context(&codec_ctx);
         out_stream->time_base = timeBase;
         return ret;
+    }
+
+    int newStream(AVCodecID codec_id, AVRational timeBase)
+    {
+        const AVCodec *avcodec    = avcodec_find_decoder(codec_id);
+        AVStream *out_stream = avformat_new_stream(formatContext, avcodec);
+        if (!out_stream)
+        {
+            myffmpeg_dbg("Failed allocating output stream\n");
+            return AVERROR_UNKNOWN;
+        }
+        out_stream->time_base = timeBase;
+        return 0;
     }
 
     int initOutputIO(AVDictionary **options = nullptr)
@@ -828,20 +852,32 @@ private:
 class MySwsContext
 {
 public:
-    BASIC_METHODS(SwsContext, swsContext)
+    BASIC_METHODS(SwsContext, mSwsContext)
     ~MySwsContext() { clear(); }
     void clear()
     {
-        if (swsContext)
-            sws_freeContext(swsContext);
-        swsContext = nullptr;
+        if (mSwsContext)
+            sws_freeContext(mSwsContext);
+        mSwsContext = nullptr;
     }
-    int init(int srcW, int srcH, enum AVPixelFormat srcFormat, int dstW, int dstH, enum AVPixelFormat dstFormat,
-             int flags = 0)
+    int init(int srcW, int srcH, enum AVPixelFormat srcFormat, int dstW, int dstH, enum AVPixelFormat dstFormat, int flags = 0)
     {
+        if (isInit() && srcW == mSrcWidth && srcH == mSrcHeight && srcFormat == mSrcFormat && dstW == mDstWidth
+            && dstH == mDstHeight && dstFormat == mDstFormat && flags == mScaleFlags)
+            return 0;
+
         clear();
-        swsContext = sws_getContext(srcW, srcH, srcFormat, dstW, dstH, dstFormat, flags, nullptr, nullptr, nullptr);
-        if (!swsContext)
+
+        mSrcWidth   = srcW;
+        mSrcHeight  = srcH;
+        mSrcFormat  = srcFormat;
+        mDstWidth   = dstW;
+        mDstHeight  = dstH;
+        mDstFormat  = dstFormat;
+        mScaleFlags = flags;
+
+        mSwsContext = sws_getContext(srcW, srcH, srcFormat, dstW, dstH, dstFormat, flags, nullptr, nullptr, nullptr);
+        if (!mSwsContext)
             return AVERROR(EINVAL);
         return 0;
     }
@@ -850,7 +886,7 @@ public:
 
     int scaleFrame(AVFrame *dst, AVFrame *src)
     {
-        int ret = sws_scale_frame(swsContext, dst, src);
+        int ret = sws_scale_frame(mSwsContext, dst, src);
         if (ret < 0)
         {
             myffmpeg_dbg("sws_scale_frame fail: %s\n", ffmpeg_make_err_string(ret));
@@ -859,7 +895,10 @@ public:
     }
 
 private:
-    SwsContext *swsContext = nullptr;
+    AVPixelFormat mSrcFormat = AV_PIX_FMT_NONE, mDstFormat = AV_PIX_FMT_NONE;
+    int           mSrcWidth = 0, mSrcHeight = 0, mDstWidth = 0, mDstHeight = 0;
+    int           mScaleFlags = 0;
+    SwsContext   *mSwsContext = nullptr;
 };
 
 class MySwrContext
@@ -879,8 +918,8 @@ public:
     int init(const AVChannelLayout *out_ch_layout, enum AVSampleFormat out_sample_fmt, int out_sample_rate,
              const AVChannelLayout *in_ch_layout, enum AVSampleFormat in_sample_fmt, int in_sample_rate)
     {
-        int ret = swr_alloc_set_opts2(&swrContext, out_ch_layout, out_sample_fmt, out_sample_rate, in_ch_layout,
-                                      in_sample_fmt, in_sample_rate, 0, nullptr);
+        int ret = swr_alloc_set_opts2(&swrContext, out_ch_layout, out_sample_fmt, out_sample_rate, in_ch_layout, in_sample_fmt,
+                                      in_sample_rate, 0, nullptr);
         if (ret < 0)
         {
             myffmpeg_dbg("alloc fail: %s\n", ffmpeg_make_err_string(ret));
