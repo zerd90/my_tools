@@ -136,6 +136,36 @@ namespace Myffmpeg
 
 }; // namespace Myffmpeg
 
+#ifndef AV_PIX_FMT_D3D12
+    #define AV_PIX_FMT_D3D12 227
+#endif
+static inline bool isHardwareFormat(AVPixelFormat format)
+{
+    return AV_PIX_FMT_D3D11 == format || AV_PIX_FMT_D3D11VA_VLD == format || AV_PIX_FMT_DXVA2_VLD == format
+        || AV_PIX_FMT_VIDEOTOOLBOX == format || AV_PIX_FMT_MEDIACODEC == format || AV_PIX_FMT_CUDA == format
+        || AV_PIX_FMT_VAAPI == format || AV_PIX_FMT_VDPAU == format || AV_PIX_FMT_QSV == format || AV_PIX_FMT_MMAL == format
+        || AV_PIX_FMT_OPENCL == format || AV_PIX_FMT_VULKAN == format || AV_PIX_FMT_D3D12 == format;
+}
+static inline std::vector<AVHWDeviceType> getSupportHWDeviceType()
+{
+    std::vector<AVHWDeviceType> hwTypes;
+    AVHWDeviceType              type = AV_HWDEVICE_TYPE_NONE;
+    while (1)
+    {
+        type = av_hwdevice_iterate_types(type);
+        if (AV_HWDEVICE_TYPE_NONE == type)
+            break;
+        AVBufferRef *hwDeviceCtx = nullptr;
+        int          ret         = av_hwdevice_ctx_create(&hwDeviceCtx, type, nullptr, nullptr, 0);
+        if (0 == ret)
+        {
+            av_buffer_unref(&hwDeviceCtx);
+            hwTypes.push_back(type);
+        }
+    }
+
+    return hwTypes;
+}
 class MyAVFrame
 {
 public:

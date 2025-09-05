@@ -39,21 +39,4 @@ private:
     std::mutex   _mutex;
 };
 
-class ResourceGuard
-{
-public:
-    ResourceGuard(const std::function<void()> &func) : _func(func) { _func(); }
-    ~ResourceGuard()
-    {
-        if (!_dismiss)
-            _func();
-    }
-
-    void dismiss() { _dismiss = true; }
-
-private:
-    bool                  _dismiss = false;
-    std::function<void()> _func;
-};
-
 #endif
