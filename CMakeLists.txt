@@ -18,10 +18,7 @@ if(NOT PROJECT_IS_TOP_LEVEL)
 		PARENT_SCOPE
 	)
 else()
-	set(CMAKE_CXX_STANDARD 17)
-	if(WIN32)
-		add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
-	endif()
+	include(common.cmake)
 endif()
 
 # 头文件路径
