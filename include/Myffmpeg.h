@@ -143,8 +143,9 @@ static inline bool isHardwareFormat(AVPixelFormat format)
 {
     return AV_PIX_FMT_D3D11 == format || AV_PIX_FMT_D3D11VA_VLD == format || AV_PIX_FMT_DXVA2_VLD == format
         || AV_PIX_FMT_VIDEOTOOLBOX == format || AV_PIX_FMT_MEDIACODEC == format || AV_PIX_FMT_CUDA == format
-        || AV_PIX_FMT_VAAPI == format || AV_PIX_FMT_VDPAU == format || AV_PIX_FMT_QSV == format || AV_PIX_FMT_MMAL == format
-        || AV_PIX_FMT_OPENCL == format || AV_PIX_FMT_VULKAN == format || AV_PIX_FMT_D3D12 == format;
+        || AV_PIX_FMT_VAAPI == format || AV_PIX_FMT_VDPAU == format || AV_PIX_FMT_QSV == format
+        || AV_PIX_FMT_MMAL == format || AV_PIX_FMT_OPENCL == format || AV_PIX_FMT_VULKAN == format
+        || AV_PIX_FMT_D3D12 == format;
 }
 static inline std::vector<AVHWDeviceType> getSupportHWDeviceType()
 {
@@ -221,7 +222,12 @@ public:
         avFrame->ch_layout   = channelLayout;
         return av_frame_get_buffer(avFrame, 0);
     }
-
+    void copyTo(MyAVFrame &dstFrame)
+    {
+        dstFrame.getBuffer(avFrame->width, avFrame->height, (AVPixelFormat)avFrame->format);
+        av_frame_copy(dstFrame.get(), avFrame);
+        copyPropsTo(dstFrame);
+    }
     // this method only unref buffer, not free the frame
     void clear()
     {
@@ -413,7 +419,7 @@ public:
     int newStream(AVCodecID codec_id, AVRational timeBase)
     {
         const AVCodec *avcodec    = avcodec_find_decoder(codec_id);
-        AVStream *out_stream = avformat_new_stream(formatContext, avcodec);
+        AVStream      *out_stream = avformat_new_stream(formatContext, avcodec);
         if (!out_stream)
         {
             myffmpeg_dbg("Failed allocating output stream\n");
@@ -890,7 +896,8 @@ public:
             sws_freeContext(mSwsContext);
         mSwsContext = nullptr;
     }
-    int init(int srcW, int srcH, enum AVPixelFormat srcFormat, int dstW, int dstH, enum AVPixelFormat dstFormat, int flags = 0)
+    int init(int srcW, int srcH, enum AVPixelFormat srcFormat, int dstW, int dstH, enum AVPixelFormat dstFormat,
+             int flags = 0)
     {
         if (isInit() && srcW == mSrcWidth && srcH == mSrcHeight && srcFormat == mSrcFormat && dstW == mDstWidth
             && dstH == mDstHeight && dstFormat == mDstFormat && flags == mScaleFlags)
@@ -948,8 +955,8 @@ public:
     int init(const AVChannelLayout *out_ch_layout, enum AVSampleFormat out_sample_fmt, int out_sample_rate,
              const AVChannelLayout *in_ch_layout, enum AVSampleFormat in_sample_fmt, int in_sample_rate)
     {
-        int ret = swr_alloc_set_opts2(&swrContext, out_ch_layout, out_sample_fmt, out_sample_rate, in_ch_layout, in_sample_fmt,
-                                      in_sample_rate, 0, nullptr);
+        int ret = swr_alloc_set_opts2(&swrContext, out_ch_layout, out_sample_fmt, out_sample_rate, in_ch_layout,
+                                      in_sample_fmt, in_sample_rate, 0, nullptr);
         if (ret < 0)
         {
             myffmpeg_dbg("alloc fail: %s\n", ffmpeg_make_err_string(ret));
