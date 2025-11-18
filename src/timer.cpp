@@ -25,20 +25,29 @@ int gettimeofday(struct timeval *tp, void *tzp)
 #else
     #include <sys/time.h>
 #endif
-
-uint64_t gettime_ms()
+static uint64_t gAppStartTimeUs = gettime_us(false);
+uint64_t gettime_ms(bool fromAppStart)
 {
     struct timeval tim;
     gettimeofday(&tim, NULL);
-    return tim.tv_sec * 1000 + tim.tv_usec / 1000;
+    uint64_t currTime = (uint64_t)tim.tv_sec * 1000 + tim.tv_usec / 1000;
+    if (fromAppStart)
+        return currTime - gAppStartTimeUs / 1000;
+    else
+        return currTime;
 }
 
-uint64_t gettime_us()
+uint64_t gettime_us(bool fromAppStart)
 {
     struct timeval tim;
     gettimeofday(&tim, NULL);
-    return tim.tv_sec * 1000000 + tim.tv_usec;
+    uint64_t currTime = (uint64_t)tim.tv_sec * 1000000 + tim.tv_usec;
+    if (fromAppStart)
+        return currTime - gAppStartTimeUs;
+    else
+        return currTime;
 }
+
 
 int is_leap_year(int year)
 {

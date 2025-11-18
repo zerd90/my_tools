@@ -25,8 +25,8 @@ struct split_time_t
     }
 };
 
-uint64_t     gettime_ms();
-uint64_t     gettime_us();
+uint64_t     gettime_ms(bool fromAppStart = false);
+uint64_t     gettime_us(bool fromAppStart = false);
 split_time_t get_split_time(uint64_t time_tl, unsigned int start_year = 1970, int utc_region = 8);
 uint64_t     get_total_time(split_time_t s_time, unsigned int start_year = 1970);
 
