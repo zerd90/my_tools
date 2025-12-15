@@ -203,13 +203,18 @@ public:
         assert(src_frame.avFrame);
     }
 
-    int getBuffer(int width, int height, AVPixelFormat fmt)
+    int getBuffer(int width, int height, AVPixelFormat fmt, int lineSize[AV_NUM_DATA_POINTERS] = nullptr)
     {
         clear();
 
         avFrame->width  = width;
         avFrame->height = height;
         avFrame->format = fmt;
+        if (lineSize)
+        {
+            for (int i = 0; i < AV_NUM_DATA_POINTERS; i++)
+                avFrame->linesize[i] = lineSize[i];
+        }
         return av_frame_get_buffer(avFrame, 0);
     }
     int getBuffer(int nb_samples, int sampleRate, const AVChannelLayout &channelLayout, AVSampleFormat fmt)
@@ -224,7 +229,7 @@ public:
     }
     void copyTo(MyAVFrame &dstFrame)
     {
-        dstFrame.getBuffer(avFrame->width, avFrame->height, (AVPixelFormat)avFrame->format);
+        dstFrame.getBuffer(avFrame->width, avFrame->height, (AVPixelFormat)avFrame->format, avFrame->linesize);
         av_frame_copy(dstFrame.get(), avFrame);
         copyPropsTo(dstFrame);
     }
